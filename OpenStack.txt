@@ -1,0 +1,189 @@
+#!/bin/bash
+# =============================================================
+#  OpenStack – Launch an Instance (Corrected Reference Script)
+# =============================================================
+
+
+# -------------------------------------------------------------
+# 1. SSH access to OpenStack controller node
+# -------------------------------------------------------------
+ssh stack@<ip_address>
+
+
+# -------------------------------------------------------------
+# 2. Load admin credentials
+# -------------------------------------------------------------
+source openrc admin admin
+
+
+# -------------------------------------------------------------
+# 3. Create a project
+# -------------------------------------------------------------
+openstack project create \
+  --description "<your_description>" \
+  <project_name>
+
+
+# -------------------------------------------------------------
+# 4. Create a user and assign to the project
+# -------------------------------------------------------------
+openstack user create \
+  --password <your_password> \
+  --project <project_name> \
+  <username>
+
+
+# -------------------------------------------------------------
+# 5. Assign the 'member' role to the user
+# -------------------------------------------------------------
+openstack role add \
+  --project <project_name> \
+  --user <username> \
+  member
+
+
+# -------------------------------------------------------------
+# 6. Upload a CirrOS image
+# -------------------------------------------------------------
+openstack image create "<image_name>" \
+  --file cirros-0.5.1-x86_64-disk.img \
+  --disk-format qcow2 \
+  --container-format bare \
+  --public
+
+
+# -------------------------------------------------------------
+# 7. Create a private network
+# -------------------------------------------------------------
+openstack network create <network_name>
+
+
+# -------------------------------------------------------------
+# 8. Create a subnet on that network
+# -------------------------------------------------------------
+openstack subnet create \
+  --network <network_name> \
+  --subnet-range 192.168.88.0/24 \
+  --dns-nameserver 8.8.8.8 \
+  <subnet_name>
+
+
+# -------------------------------------------------------------
+# 9. Create a router
+# -------------------------------------------------------------
+openstack router create <router_name>
+
+
+# -------------------------------------------------------------
+# 10. Attach the subnet to the router
+# -------------------------------------------------------------
+openstack router add subnet <router_name> <subnet_name>
+
+
+# -------------------------------------------------------------
+# 11. Connect the router to the public (external) network
+# -------------------------------------------------------------
+openstack router set \
+  --external-gateway public \
+  <router_name>
+
+
+# -------------------------------------------------------------
+# 12. Create a flavor
+# -------------------------------------------------------------
+openstack flavor create \
+  --id auto \
+  --ram 256 \
+  --disk 1 \
+  --vcpus 1 \
+  <flavor_name>
+
+
+# -------------------------------------------------------------
+# 13. Generate an SSH keypair and import it into OpenStack
+#
+#     Option A — generate locally, import the public key
+# -------------------------------------------------------------
+ssh-keygen -b 4096 -f ~/.ssh/id_rsa
+
+openstack keypair create \
+  --public-key ~/.ssh/id_rsa.pub \
+  <key_name>
+
+# -------------------------------------------------------------
+#     Option B — let OpenStack generate the keypair,
+#               save and secure the private key
+# -------------------------------------------------------------
+openstack keypair create <key_name> > <key_name>.pem
+chmod 600 <key_name>.pem
+
+
+# -------------------------------------------------------------
+# 14. Create a security group
+# -------------------------------------------------------------
+openstack security group create \
+  --description "Web Server Firewall" \
+  <sg_name>
+
+
+# -------------------------------------------------------------
+# 15. Add security group rules
+# -------------------------------------------------------------
+
+# Allow SSH (port 22) from anywhere
+openstack security group rule create \
+  --protocol tcp \
+  --dst-port 22 \
+  <sg_name>
+
+# Allow HTTP (port 80) from anywhere
+openstack security group rule create \
+  --protocol tcp \
+  --dst-port 80 \
+  <sg_name>
+
+
+# -------------------------------------------------------------
+# 16. Create the user-data boot script (boot.sh)
+#     Save this block to a file called boot.sh before running
+#     the server create command below.
+# -------------------------------------------------------------
+cat > boot.sh << 'EOF'
+#!/bin/sh
+while true; do
+  echo -e 'HTTP/1.0 200 OK\r\n\r\nHello Nebula Inc' | sudo nc -l -p 80
+done &
+EOF
+
+
+# -------------------------------------------------------------
+# 17. Launch the instance
+# -------------------------------------------------------------
+openstack server create \
+  --flavor <flavor_name> \
+  --image <image_name> \
+  --network <network_name> \
+  --security-group <sg_name> \
+  --key-name <key_name> \
+  --user-data boot.sh \
+  <instance_name>
+
+
+# -------------------------------------------------------------
+# 18. Allocate a floating IP from the public pool
+# -------------------------------------------------------------
+openstack floating ip create public
+
+
+# -------------------------------------------------------------
+# 19. Attach the floating IP to the instance
+# -------------------------------------------------------------
+openstack server add floating ip <instance_name> <YOUR_FLOATING_IP>
+
+
+# -------------------------------------------------------------
+# 20. Verify SSH connectivity
+#     Default CirrOS user : cirros
+#     Default CirrOS password (fallback) : gocubsgo
+# -------------------------------------------------------------
+ssh -i <key_name>.pem cirros@<YOUR_FLOATING_IP>
