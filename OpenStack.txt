@@ -181,9 +181,11 @@ openstack floating ip create public
 openstack server add floating ip <instance_name> <YOUR_FLOATING_IP>
 
 
+
 # -------------------------------------------------------------
 # 20. Verify SSH connectivity
 #     Default CirrOS user : cirros
 #     Default CirrOS password (fallback) : gocubsgo
 # -------------------------------------------------------------
 ssh -i <key_name>.pem cirros@<YOUR_FLOATING_IP>
+ssh -i <key_directory> cirros@<YOUR_FLOATING_IP>
