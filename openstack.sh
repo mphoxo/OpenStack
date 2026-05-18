@@ -262,14 +262,14 @@ open_ports() {
     echo "Open SSH (port 22)? (yes/no, default: yes):"
     read -r open_ssh
     if [[ -z "$open_ssh" ]] || [[ $open_ssh == "yes" ]]; then
-        cmd="openstack security group rule create --proto tcp --dst-port 22 $sg_name"
+        cmd="openstack security group rule create --protocol tcp --dst-port 22 $sg_name"
         show_command "$cmd"
     fi
     
     echo "Open HTTP (port 80)? (yes/no, default: yes):"
     read -r open_http
     if [[ -z "$open_http" ]] || [[ $open_http == "yes" ]]; then
-        cmd="openstack security group rule create --proto tcp --dst-port 80 $sg_name"
+        cmd="openstack security group rule create --protocol tcp --dst-port 80 $sg_name"
         show_command "$cmd"
     fi
 }
